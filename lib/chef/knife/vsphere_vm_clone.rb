@@ -333,8 +333,6 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 
 			ident.hostName = RbVmomi::VIM.CustomizationFixedName
 
-			puts "customization hostname -> #{config[:customization_hostname]} e vmware -> #{config[:vmware]}"
-			
 			if config[:customization_hostname]
 				ident.hostName.name = config[:customization_hostname]
 			else
