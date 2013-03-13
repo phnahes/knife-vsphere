@@ -159,6 +159,21 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 		:description => "Disable host key verification",
 		:boolean => true
 
+	option :exec_dir,
+		:long => "--exec-dir DIRECTORY",
+		:description => "Working directory to execute in"
+	$default[:exec_dir] = "/root"
+
+# Not used yet
+#	option :exec_command,
+#		:long => "--exec-command COMMAND",
+#		:description => "Command to execute in"
+#	$default[:exec_command] = "/sbin/reboot"
+#
+#	option :exec_args,
+#		:long => "--exec-args ARGS",
+#		:description => "Args for Command to execute in"
+
 	def run
 		$stdout.sync = true
 
@@ -169,6 +184,11 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 		end
 		config[:chef_node_name] = vmname unless config[:chef_node_name]
 		config[:vmname] = vmname
+
+		# Used to reload VM and apply the changes
+		command = "/sbin/reboot"
+		args = ""
+		###
 
 		if get_config(:bootstrap) && get_config(:distro) && !@@chef_config_dir
 			fatal_exit("Can't find .chef for bootstrap files. chdir to a location with a .chef directory and try again")
@@ -200,10 +220,26 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 			fatal_exit("VM #{vmname} not found")
 			vm.PowerOnVM_Task.wait_for_completion
 			puts "Powered on virtual machine #{vmname}"
+
 		end
 
 		if get_config(:bootstrap)
-			sleep 2 until vm.guest.ipAddress
+	
+			# Before the config bootstrap send a guest command (reboot) to apply the changes
+			puts "Waiting 20 seconds to send a command..."
+			sleep 20
+
+			gom = vim.serviceContent.guestOperationsManager
+			guest_auth = RbVmomi::VIM::NamePasswordAuthentication(:interactiveSession => false, :username => config[:ssh_user], :password => config[:ssh_password])
+			prog_spec = RbVmomi::VIM::GuestProgramSpec(:programPath => command, :arguments => args, :workingDirectory => get_config(:exec_dir))
+			#prog_spec = RbVmomi::VIM::GuestProgramSpec(:programPath => get_config(:exec_command), :arguments => get_config(:exec_args), :workingDirectory => get_config(:exec_dir))
+
+			gom.processManager.StartProgramInGuest(:vm => vm, :auth => guest_auth, :spec => prog_spec)
+			# End
+
+			#sleep 2 until vm.guest.ipAddress
+			puts "Waiting 20 seconds to bootstrap configure"
+			sleep 20 until vm.guest.ipAddress
 			config[:fqdn] = vm.guest.ipAddress unless config[:fqdn]
 			print "Waiting for sshd..."
 			print "." until tcp_test_ssh(config[:fqdn])
@@ -296,6 +332,9 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 			ident = RbVmomi::VIM.CustomizationLinuxPrep
 
 			ident.hostName = RbVmomi::VIM.CustomizationFixedName
+
+			puts "customization hostname -> #{config[:customization_hostname]} e vmware -> #{config[:vmware]}"
+			
 			if config[:customization_hostname]
 				ident.hostName.name = config[:customization_hostname]
 			else
