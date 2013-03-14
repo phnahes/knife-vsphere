@@ -31,9 +31,27 @@ class Chef::Knife::VsphereVmList < Chef::Knife::BaseVsphereCommand
 	end
 
 	def print_vms_in_folder(folder)
-		vms = find_all_in_folder(folder, RbVmomi::VIM::VirtualMachine)
+		vms = find_all_in_folder(folder, RbVmomi::VIM::VirtualMachine).
+			select {|v| !v.config.nil? && v.config.template == false } # Only show Virtual Machines (exclude Templates)
 		vms.each do |vm|
-			puts "#{ui.color("VM Name:", :cyan)} #{vm.name}\t#{ui.color("IP:", :magenta)} #{vm.guest.ipAddress}\t#{ui.color("RAM:", :magenta)} #{vm.summary.config.memorySizeMB}"
+			#puts "#{ui.color("VM Name:", :cyan)} #{vm.name}\t#{ui.color("IP:", :magenta)} #{vm.guest.ipAddress}\t#{ui.color("RAM:", :magenta)} #{vm.summary.config.memorySizeMB}"
+
+			# Workarount to get a datastore name
+			# TODO - Method to get datastore name
+			str="#{vm.config.datastoreUrl}"
+			str2 = str.scan /datastore\d*/
+			datastore = str2.join( )
+
+			puts "#{ui.color("VM Name:", :cyan)} #{vm.name}
+				#{ui.color("UUID:", :magenta)} #{vm.summary.config.uuid}
+				#{ui.color("CPU:", :magenta)} #{vm.summary.config.numCpu}
+				#{ui.color("RAM:", :magenta)} #{vm.summary.config.memorySizeMB}
+				#{ui.color("Disks:", :magenta)} #{vm.summary.config.numVirtualDisks}
+				#{ui.color("DataStore:", :magenta)} #{datastore}
+				#{ui.color("NumInterfaces:", :magenta)} #{vm.summary.config.numEthernetCards}
+				#{ui.color("IP Primario:", :magenta)} #{vm.guest.ipAddress}
+				#{ui.color("VmTools:", :magenta)} #{vm.guest.toolsRunningStatus}
+			"
 		end
 	end
 
