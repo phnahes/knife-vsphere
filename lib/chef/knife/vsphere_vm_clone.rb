@@ -42,13 +42,13 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 		:long => "--cspec CUST_SPEC",
 		:description => "The name of any customization specification to apply"
 
-	option :customization_vlan,
-		:long => "--cvlan CUST_VLAN",
-		:description => "VLAN name for network adapter to join"
-
 	option :customization_ips,
 		:long => "--cips CUST_IPS",
 		:description => "Comma-delimited list of CIDR IPs for customization"
+
+	option :customization_vlans,
+		:long => "--cvlans CUST_VLANS",
+		:description => "Comma-delimited list of VLANs for customization"
 
 	option :customization_dns_ips,
 		:long => "--cdnsips CUST_DNS_IPS",
@@ -196,8 +196,8 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 
 		vim = get_vim_connection
 
-    dcname = get_config(:vsphere_dc)
-    dc = vim.serviceInstance.find_datacenter(dcname) or abort "datacenter not found"
+		dcname = get_config(:vsphere_dc)
+		dc = vim.serviceInstance.find_datacenter(dcname) or abort "datacenter not found"
 
 		src_folder = find_folder(get_config(:folder)) || dc.vmFolder
 
@@ -206,7 +206,7 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 
 		clone_spec = generate_clone_spec(src_vm.config)
 
-    cust_folder = config[:dest_folder] || get_config(:folder)
+		cust_folder = config[:dest_folder] || get_config(:folder)
 
 		dest_folder = cust_folder.nil? ? src_vm.vmFolder : find_folder(cust_folder)
 
@@ -226,20 +226,18 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 		if get_config(:bootstrap)
 	
 			# Before the config bootstrap send a guest command (reboot) to apply the changes
-			puts "Waiting 20 seconds to send a command..."
+			puts "Waiting to send a Reboot..."
 			sleep 20
 
 			gom = vim.serviceContent.guestOperationsManager
 			guest_auth = RbVmomi::VIM::NamePasswordAuthentication(:interactiveSession => false, :username => config[:ssh_user], :password => config[:ssh_password])
 			prog_spec = RbVmomi::VIM::GuestProgramSpec(:programPath => command, :arguments => args, :workingDirectory => get_config(:exec_dir))
-			#prog_spec = RbVmomi::VIM::GuestProgramSpec(:programPath => get_config(:exec_command), :arguments => get_config(:exec_args), :workingDirectory => get_config(:exec_dir))
-
+			# TODO - prog_spec = RbVmomi::VIM::GuestProgramSpec(:programPath => get_config(:exec_command), :arguments => get_config(:exec_args), :workingDirectory => get_config(:exec_dir))
 			gom.processManager.StartProgramInGuest(:vm => vm, :auth => guest_auth, :spec => prog_spec)
 			# End
 
-			#sleep 2 until vm.guest.ipAddress
-			puts "Waiting 20 seconds to bootstrap configure"
 			sleep 20 until vm.guest.ipAddress
+			puts "Initializing the bootstrap configuration"
 			config[:fqdn] = vm.guest.ipAddress unless config[:fqdn]
 			print "Waiting for sshd..."
 			print "." until tcp_test_ssh(config[:fqdn])
@@ -252,16 +250,16 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 	# Builds a CloneSpec
 	def generate_clone_spec (src_config)
 
-    rspec = nil
-    if get_config(:resource_pool)
-      rspec = RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => find_pool(get_config(:resource_pool)))
-    else
-      dcname = get_config(:vsphere_dc)
-      dc = config[:vim].serviceInstance.find_datacenter(dcname) or abort "datacenter not found"
-      hosts = find_all_in_folder(dc.hostFolder, RbVmomi::VIM::ComputeResource)
-      rp = hosts.first.resourcePool
-      rspec = RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => rp)
-    end
+		rspec = nil
+		if get_config(:resource_pool)
+			rspec = RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => find_pool(get_config(:resource_pool)))
+		else
+			dcname = get_config(:vsphere_dc)
+			dc = config[:vim].serviceInstance.find_datacenter(dcname) or abort "datacenter not found"
+			hosts = find_all_in_folder(dc.hostFolder, RbVmomi::VIM::ComputeResource)
+			rp = hosts.first.resourcePool
+			rspec = RbVmomi::VIM.VirtualMachineRelocateSpec(:pool => rp)
+		end
 
 		if get_config(:datastore)
 			rspec.datastore = find_datastore(get_config(:datastore))
@@ -281,19 +279,21 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 			clone_spec.config.memoryMB = Integer(get_config(:customization_memory)) * 1024
 		end
 
-		if get_config(:customization_vlan)
-			network = find_network(get_config(:customization_vlan))
-			card = src_config.hardware.device.find { |d| d.deviceInfo.label == "Network adapter 1" } or
-        abort "Can't find source network card to customize"
-                        begin
-                            switch_port = RbVmomi::VIM.DistributedVirtualSwitchPortConnection(:switchUuid => network.config.distributedVirtualSwitch.uuid ,:portgroupKey => network.key)
-                            card.backing.port = switch_port
-                        rescue
-                            # not connected to a distibuted switch?
-                            card.backing.deviceName = network.name
-                        end
-			dev_spec = RbVmomi::VIM.VirtualDeviceConfigSpec(:device => card, :operation => "edit")
-			clone_spec.config.deviceChange.push dev_spec
+		if config[:customization_vlans]
+			config[:customization_vlans].split(",").each_with_index do |vlan, index|
+				network = find_network(vlan)
+				card = src_config.hardware.device.find { |d| d.deviceInfo.label == "Network adapter #{index + 1}" } or abort "Can't find source network card to customize"
+				
+				begin
+				    switch_port = RbVmomi::VIM.DistributedVirtualSwitchPortConnection(:switchUuid => network.config.distributedVirtualSwitch.uuid ,:portgroupKey => network.key)
+				    card.backing.port = switch_port
+				rescue
+				    # not connected to a distibuted switch?
+				    card.backing.deviceName = network.name
+				end
+				dev_spec = RbVmomi::VIM.VirtualDeviceConfigSpec(:device => card, :operation => "edit")
+				clone_spec.config.deviceChange.push dev_spec
+			end
 		end
 
 		if get_config(:customization_spec)
