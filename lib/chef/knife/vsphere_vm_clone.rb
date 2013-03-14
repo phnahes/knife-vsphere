@@ -211,22 +211,23 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 		dest_folder = cust_folder.nil? ? src_vm.vmFolder : find_folder(cust_folder)
 
 		task = src_vm.CloneVM_Task(:folder => dest_folder, :name => vmname, :spec => clone_spec)
-		puts "Cloning template #{config[:source_vm]} to new VM #{vmname}"
+		puts "#{ui.color("**" *50, :green)}"
+		puts "Cloning template #{ui.color("#{config[:source_vm]}", :red)} to new VM #{ui.color("#{vmname}", :blue)}"
 		task.wait_for_completion
-		puts "Finished creating virtual machine #{vmname}"
+		puts "Finished creating virtual machine #{ui.color("#{vmname}", :blue)}"
 
 		if get_config(:power) || get_config(:bootstrap)
 			vm = find_in_folder(dest_folder, RbVmomi::VIM::VirtualMachine, vmname) or
 			fatal_exit("VM #{vmname} not found")
 			vm.PowerOnVM_Task.wait_for_completion
-			puts "Powered on virtual machine #{vmname}"
+			puts "Powered on virtual machine #{ui.color("#{vmname}", :blue)}"
 
 		end
 
 		if get_config(:bootstrap)
 	
 			# Before the config bootstrap send a guest command (reboot) to apply the changes
-			puts "Waiting to send a Reboot..."
+			puts "Waiting to send a Reboot to #{ui.color("#{vmname}", :blue)}"
 			sleep 20
 
 			gom = vim.serviceContent.guestOperationsManager
