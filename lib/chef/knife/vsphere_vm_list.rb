@@ -39,7 +39,7 @@ class Chef::Knife::VsphereVmList < Chef::Knife::BaseVsphereCommand
 			# Workarount to get a datastore name
 			# TODO - Method to get datastore name
 			str="#{vm.config.datastoreUrl}"
-			str2 = str.scan /datastore\d*/
+			str2 = str.scan /dsHammer\d*/
 			datastore = str2.join( )
 
 			puts "#{ui.color("VM Name:", :cyan)} #{vm.name}
