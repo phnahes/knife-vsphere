@@ -113,6 +113,12 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 		:description => "The ssh port"
 	$default[:ssh_port] = 22
 
+	option :so,
+		:long => "--so SO",
+		:description => "The SO (ubuntu or centos)"
+	$default[:so] = "ubuntu"
+
+
 	option :identity_file,
 		:short => "-i IDENTITY_FILE",
 		:long => "--identity-file IDENTITY_FILE",
@@ -225,10 +231,20 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 		end
 
 		if get_config(:bootstrap)
-	
+
+			if get_config(:so) == 'ubuntu'
+				time1 = 20
+				time2 = 20
+				puts  "SO: #{ui.color(config[:so], :blue)}, Timeout: 20 seconds;"
+			elsif get_config(:so) == 'centos'
+				time1 = 40
+				time2 = 50
+				puts  "SO: #{ui.color(config[:so], :blue)}, Timeout: 50 seconds;"
+			end
+
 			# Before the config bootstrap send a guest command (reboot) to apply the changes
 			puts "Waiting to send a Reboot to #{ui.color("#{vmname}", :blue)}"
-			sleep 20
+			sleep time1
 
 			gom = vim.serviceContent.guestOperationsManager
 			guest_auth = RbVmomi::VIM::NamePasswordAuthentication(:interactiveSession => false, :username => config[:ssh_user], :password => config[:ssh_password])
@@ -237,7 +253,7 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 			gom.processManager.StartProgramInGuest(:vm => vm, :auth => guest_auth, :spec => prog_spec)
 			# End
 
-			sleep 20 until vm.guest.ipAddress
+			sleep time2 until vm.guest.ipAddress
 			puts "Initializing the bootstrap configuration"
 			config[:fqdn] = vm.guest.ipAddress unless config[:fqdn]
 			print "Waiting for sshd..."
