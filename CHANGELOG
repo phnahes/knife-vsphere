@@ -1,5 +1,6 @@
 knife-vsphere changelog
 ----------------------
+0.5.0 * Paulo Nahes - Version Conflicts
 0.3.4 * Paulo Nahes - improvements on vm clone, added resource to choose SO (centos set 50 secs and ubuntu 20 secs of timeout when wait the vm reboot)
 0.3.3 * Paulo Nahes - improvements on vm list command
 0.3.2 * Paulo Nahes - added support for multiples VLANs to multiples Interfaces (IP's)
