@@ -233,8 +233,8 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 		if get_config(:bootstrap)
 
 			if get_config(:so) == 'ubuntu'
-				time1 = 20
-				time2 = 20
+				time1 = 40
+				time2 = 40
 				puts  "SO: #{ui.color(config[:so], :blue)}, Timeout: 20 seconds;"
 			elsif get_config(:so) == 'centos'
 				time1 = 120

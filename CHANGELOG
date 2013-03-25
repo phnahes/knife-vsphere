@@ -1,5 +1,6 @@
 knife-vsphere changelog
 ----------------------
+0.5.2 * Paulo Nahes - changed timeout values, now because ubuntu 11.
 0.5.1 * Paulo Nahes - changed timeout values, because centos machines take longer time.
 0.5.0 * Paulo Nahes - version conflicts
 0.3.4 * Paulo Nahes - improvements on vm clone, added resource to choose SO (centos set 50 secs and ubuntu 20 secs of timeout when wait the vm reboot)
