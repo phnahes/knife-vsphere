@@ -237,9 +237,9 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 				time2 = 20
 				puts  "SO: #{ui.color(config[:so], :blue)}, Timeout: 20 seconds;"
 			elsif get_config(:so) == 'centos'
-				time1 = 40
-				time2 = 50
-				puts  "SO: #{ui.color(config[:so], :blue)}, Timeout: 50 seconds;"
+				time1 = 120
+				time2 = 120
+				puts  "SO: #{ui.color(config[:so], :blue)}, Timeout: 120 seconds;"
 			end
 
 			# Before the config bootstrap send a guest command (reboot) to apply the changes
@@ -253,6 +253,7 @@ class Chef::Knife::VsphereVmClone < Chef::Knife::BaseVsphereCommand
 			gom.processManager.StartProgramInGuest(:vm => vm, :auth => guest_auth, :spec => prog_spec)
 			# End
 
+                        puts "Command sent, waiting to configure bootstrap"
 			sleep time2 until vm.guest.ipAddress
 			puts "Initializing the bootstrap configuration"
 			config[:fqdn] = vm.guest.ipAddress unless config[:fqdn]
